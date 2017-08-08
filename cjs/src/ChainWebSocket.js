@@ -33,13 +33,11 @@ var ChainWebSocket = function () {
         }
         this.ws.timeoutInterval = 5000;
         this.current_reject = null;
-        this.on_reconnect = null;
         this.connect_promise = new Promise(function (resolve, reject) {
             _this.current_reject = reject;
             _this.ws.onopen = function () {
                 clearTimeout(_this.connectionTimeout);
                 if (_this.statusCb) _this.statusCb("open");
-                if (_this.on_reconnect) _this.on_reconnect();
                 resolve();
             };
             _this.ws.onerror = function (error) {
