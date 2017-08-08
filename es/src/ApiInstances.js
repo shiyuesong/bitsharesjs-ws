@@ -111,16 +111,6 @@ var ApisInstance = function () {
                     //DEBUG console.log("chain_id1",this.chain_id)
                 });
             });
-            _this.ws_rpc.on_reconnect = function () {
-                _this.ws_rpc.login("", "").then(function () {
-                    _this._db.init().then(function () {
-                        if (_this.statusCb) _this.statusCb("reconnect");
-                    });
-                    _this._net.init();
-                    _this._hist.init();
-                    _this._crypt.init();
-                });
-            };
             return Promise.all([db_promise, _this._net.init(), _this._hist.init(), _this._crypt.init()
             // Temporary squash crypto API error until the API is upgraded everywhere
             .catch(function (e) {
