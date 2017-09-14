@@ -52,10 +52,15 @@ var ChainWebSocket = function () {
                 return _this.listener(JSON.parse(message.data));
             };
             _this.ws.onclose = function () {
+                var err = new Error('connection closed');
+                for (var cbId = _this.responseCbId + 1; cbId <= _this.cbId; cbId += 1) {
+                    _this.cbs[cbId].reject(err);
+                }
                 if (_this.statusCb) _this.statusCb("closed");
             };
         });
         this.cbId = 0;
+        this.responseCbId = 0;
         this.cbs = {};
         this.subs = {};
         this.unsub = {};
@@ -64,6 +69,9 @@ var ChainWebSocket = function () {
     ChainWebSocket.prototype.call = function call(params) {
         var _this2 = this;
 
+        if (this.ws.readyState != 1) {
+            return Promise.reject(new Error('websocke state error:' + this.ws.readyState));
+        }
         var method = params[1];
         if (SOCKET_DEBUG) console.log("[ChainWebSocket] >---- call ----->  \"id\":" + (this.cbId + 1), JSON.stringify(params));
 
@@ -107,10 +115,6 @@ var ChainWebSocket = function () {
                 resolve: resolve,
                 reject: reject
             };
-            _this2.ws.onerror = function (error) {
-                console.log("!!! ChainWebSocket Error ", error);
-                reject(error);
-            };
             _this2.ws.send(JSON.stringify(request));
         });
     };
@@ -128,6 +132,7 @@ var ChainWebSocket = function () {
 
         if (!sub) {
             callback = this.cbs[response.id];
+            this.responseCbId = response.id;
         } else {
             callback = this.subs[response.id].callback;
         }

@@ -50,6 +50,7 @@ export default {
         var cs = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : "ws://localhost:8090";
         var connect = arguments[1];
         var connectTimeout = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 4000;
+        var enableCrypto = arguments[3];
 
         if (!inst) {
             inst = new ApisInstance();
@@ -57,7 +58,7 @@ export default {
         }
 
         if (inst && connect) {
-            inst.connect(cs, connectTimeout);
+            inst.connect(cs, connectTimeout, enableCrypto);
         }
 
         return inst;
@@ -87,6 +88,8 @@ var ApisInstance = function () {
     ApisInstance.prototype.connect = function connect(cs, connectTimeout) {
         var _this = this;
 
+        var enableCrypto = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+
         // console.log("INFO\tApiInstances\tconnect\t", cs);
 
         var rpc_user = "",
@@ -102,7 +105,7 @@ var ApisInstance = function () {
             _this._db = new GrapheneApi(_this.ws_rpc, "database");
             _this._net = new GrapheneApi(_this.ws_rpc, "network_broadcast");
             _this._hist = new GrapheneApi(_this.ws_rpc, "history");
-            _this._crypt = new GrapheneApi(_this.ws_rpc, "crypto");
+            if (enableCrypto) _this._crypt = new GrapheneApi(_this.ws_rpc, "crypto");
             var db_promise = _this._db.init().then(function () {
                 //https://github.com/cryptonomex/graphene/wiki/chain-locked-tx
                 return _this._db.exec("get_chain_id", []).then(function (_chain_id) {
@@ -111,11 +114,10 @@ var ApisInstance = function () {
                     //DEBUG console.log("chain_id1",this.chain_id)
                 });
             });
-            return Promise.all([db_promise, _this._net.init(), _this._hist.init(), _this._crypt.init()
-            // Temporary squash crypto API error until the API is upgraded everywhere
-            .catch(function (e) {
-                return console.error("ApiInstance\tCrypto API Error", e);
-            })]);
+
+            var initPromises = [db_promise, _this._net.init(), _this._hist.init()];
+            if (enableCrypto) initPromises.push(_this._crypt.init());
+            return Promise.all(initPromises);
         });
     };
 

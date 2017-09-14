@@ -16,19 +16,25 @@ var Manager = function () {
         });
     }
 
-    Manager.prototype.logFailure = function logFailure(url) {
-        console.error("Unable to connect to", url + ", skipping to next full node API server");
+    Manager.prototype.logFailure = function logFailure(url, err) {
+        console.error("Unable to connect to", url + ", skipping to next full node API server. " + (err ? JSON.stringify(err) : ""));
     };
 
     Manager.prototype.connect = function connect() {
         var _connect = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : true;
 
+        var _this = this;
+
         var url = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : this.url;
+        var enableCrypto = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
 
         return new Promise(function (resolve, reject) {
-            Apis.instance(url, _connect).init_promise.then(resolve).catch(function () {
+            Apis.instance(url, _connect, undefined, enableCrypto).init_promise.then(function () {
+                _this.url = url;
+                resolve();
+            }).catch(function (err) {
                 Apis.instance().close();
-                reject();
+                reject(new Error("Unable to connect to node: " + url + ", error:" + JSON.stringify(err)));
             });
         });
     };
@@ -37,25 +43,26 @@ var Manager = function () {
         var connect = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : true;
         var url = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : this.url;
         var index = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
-
-        var _this = this;
-
         var resolve = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
+
+        var _this2 = this;
+
         var reject = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : null;
+        var enableCrypto = arguments[5];
 
         if (reject && index > this.urls.length - 1) return reject(new Error("Tried " + (index + 1) + " connections, none of which worked: " + JSON.stringify(this.urls.concat(this.url))));
-        var fallback = function fallback(resolve, reject) {
-            _this.logFailure(url);
-            return _this.connectWithFallback(connect, _this.urls[index], index + 1, resolve, reject);
+        var fallback = function fallback(err, resolve, reject) {
+            _this2.logFailure(url, err);
+            return _this2.connectWithFallback(connect, _this2.urls[index], index + 1, resolve, reject, enableCrypto);
         };
         if (resolve && reject) {
-            return this.connect(connect, url).then(resolve).catch(function () {
-                fallback(resolve, reject);
+            return this.connect(connect, url, enableCrypto).then(resolve).catch(function (err) {
+                fallback(err, resolve, reject);
             });
         } else {
             return new Promise(function (resolve, reject) {
-                _this.connect(connect).then(resolve).catch(function () {
-                    fallback(resolve, reject);
+                _this2.connect(connect, undefined, enableCrypto).then(resolve).catch(function (err) {
+                    fallback(err, resolve, reject);
                 });
             });
         }
@@ -65,14 +72,14 @@ var Manager = function () {
         var rpc_user = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : "";
         var rpc_password = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "";
 
-        var _this2 = this;
+        var _this3 = this;
 
         var resolve = arguments[2];
         var reject = arguments[3];
 
         var connectionStartTimes = {};
         var checkFunction = function checkFunction(resolve, reject) {
-            var fullList = _this2.urls.concat(_this2.url);
+            var fullList = _this3.urls.concat(_this3.url);
             var connectionPromises = [];
 
             fullList.forEach(function (url) {
@@ -85,10 +92,10 @@ var Manager = function () {
                         conn.close();
                         return _ref2 = {}, _ref2[url] = new Date().getTime() - connectionStartTimes[url], _ref2;
                     }).catch(function (err) {
-                        if (url === _this2.url) {
-                            _this2.url = _this2.urls[0];
+                        if (url === _this3.url) {
+                            _this3.url = _this3.urls[0];
                         } else {
-                            _this2.urls = _this2.urls.filter(function (a) {
+                            _this3.urls = _this3.urls.filter(function (a) {
                                 return a !== url;
                             });
                         }
@@ -109,7 +116,7 @@ var Manager = function () {
                     return f;
                 }, {}));
             }).catch(function () {
-                return _this2.checkConnections(rpc_user, rpc_password, resolve, reject);
+                return _this3.checkConnections(rpc_user, rpc_password, resolve, reject);
             });
         };
 
