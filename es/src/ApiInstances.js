@@ -123,6 +123,8 @@ var ApisInstance = function () {
         if (this.ws_rpc) {
             this.ws_rpc.statusCb = null;
             this.ws_rpc.keepAliveCb = null;
+            this.ws_rpc.on_close = null;
+            this.ws_rpc.on_reconnect = null;
         }
         this.ws_rpc = new ChainWebSocket(cs, this.statusCb, connectTimeout, autoReconnect, function (closed) {
             if (_this2._db && !closed) {
